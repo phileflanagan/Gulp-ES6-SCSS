@@ -1,13 +1,16 @@
-var gulp        = require('gulp');
-var browserSync = require('browser-sync');
-var sass        = require('gulp-sass');
-var prefix      = require('gulp-autoprefixer');
-var plumber     = require('gulp-plumber');
-var notify      = require('gulp-notify');
-var uglify      = require('gulp-uglify');
-var rename      = require('gulp-rename');
-var babel       = require('gulp-babel');
-
+var gulp           = require('gulp');
+var browserSync    = require('browser-sync');
+var sass           = require('gulp-sass');
+var prefix         = require('gulp-autoprefixer');
+var plumber        = require('gulp-plumber');
+var notify         = require('gulp-notify');
+var uglify         = require('gulp-uglify');
+var rename         = require('gulp-rename');
+var babel          = require('gulp-babel');
+var autopolyfiller = require("gulp-autopolyfiller");
+var concat         = require("gulp-concat");
+var order          = require("gulp-order");
+var merge          = require("event-stream").merge;
 
 //Static Server + watching scss/html files
 gulp.task('serve', ['sass', 'js'], function() {
@@ -43,11 +46,26 @@ gulp.task('sass', function() {
 
 //Compile and Minify JavaScript
 gulp.task('js', function() {
-    return gulp.src('./src/javascript/index.js')
+    var all = gulp.src('./src/javascript/**/*.js')
+       .pipe(order([
+         'vendor/**/*.js',
+         'app/**/*.js',
+         'index.js'
+       ]))
+       .pipe(concat('all.js'))
        .pipe(babel({
          presets: ['es2015'],
-         compact: true
+         compact: false
        }))
+    var polyfills = all
+       .pipe(autopolyfiller('polyfills.js'));
+
+    return merge(polyfills, all)
+       .pipe(order([
+         'polyfills.js',
+         'all.js'
+       ]))
+      .pipe(concat('all.min.js'))
       .pipe(uglify())
       .pipe(rename('index.min.js'))
       .pipe(gulp.dest('./dist/assets/javascript/'))
